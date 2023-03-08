@@ -1,43 +1,63 @@
-from flask import Flask, render_template, request
 import mysql.connector
-
-db = mysql.connector.connect(
-  host="10.0.6.10",
-  port="3356",
-  user="chat_app",
-  password="chat_app",
-  database="chat_app"
-)
-
+from flask import Flask, request, render_template
 app = Flask(__name__)
 
-@app.route('/')
+# MySQL database configuration
+user = 'root'
+password = 'nilesh'
+host = 'localhost'
+database = 'chatbot'
+table_name = 'messages'
+# Connect to the MySQL server
+conn = mysql.connector.connect(user=user, password=password, host=host)
+
+# Create the database
+cur = conn.cursor()
+try:
+ cur.execute(f"CREATE DATABASE {database}")
+except:
+ pass
+
+# Connect to the new database
+#conn = mysql.connector.connect(user=user, password=password, host=host, database=database)
+#table_name = 'messages'
+print("Connected to database '{}'".format(database))
+# Check if the table already exists
+cur.execute("USE {}".format(database))
+cur.execute("SHOW TABLES LIKE '{}'".format(table_name))
+result = cur.fetchone()
+
+if result:
+    print("Table '{}' already exists".format(table_name))
+else:
+    # Create the table
+    cur.execute("""CREATE TABLE messages (
+                   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                   message VARCHAR(255),
+                   response VARCHAR(255)
+                )""")
+    print("Table '{}' created successfully".format(table_name))
+
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    return render_template('index.html')
+    if request.method == 'POST':
+        # Get the message from the form
+        message = request.form['message']
+        response_text = 'I don\'t know what to say'
+
+        # Save the message and response to the database
+        cur = conn.cursor()
+        cur.execute("INSERT INTO messages (message, response) VALUES (%s, %s)", (message, response_text))
+        conn.commit()
+        cur.close()
+
+    # Get all messages and responses from the database
+    cur = conn.cursor()
+    cur.execute("SELECT message, response FROM messages")
+    messages = cur.fetchall()
+    cur.close()
+
+    return render_template('index.html', messages=messages)
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-import transformers
-
-
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    user_input = request.form['user_input']
-    pipe = transformers.pipeline('text-generation', model='gpt2')
-    bot_output = pipe(user_input, max_length=60, num_return_sequences=1)[0]['generated_text']
-    cursor = db.cursor()
-    #This code creates an SQL query to insert the `user_input` and `bot_output` values into a table called `chat_history` in the `chat_app` database, and then executes the query using the `cursor.execute()` method. Finally, it commits the changes to the database using the `db.commit()` method.
-    sql = "INSERT INTO chat_history (user_input, bot_output) VALUES (%s, %s)"
-    values = (user_input, bot_output)
-    cursor.execute(sql, values)
-    db.commit()
-    return bot_output
-
-@app.route('/history')
-def history():
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM chat_history")
-    results = cursor.fetchall()
-    return render_template('history.html', results=results)
+    app.run(host='0.0.0.0')
