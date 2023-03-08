@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat History</title>
+</head>
+<body>
+    <h1>Chat History</h1>
+    <table>
+        <tr>
+            <th>User Input</th>
+            <th>Bot Output</th>
+        </tr>
+        {% for result in results %}
+        <tr>
+            <td>{{ result[1] }}</td>
+            <td>{{ result[2] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
